@@ -15,6 +15,7 @@ set(SRC_FILES
 include_directories(include)
 
 add_library(vcellmessaging ${SRC_FILES} ${HEADER_FILES})
+target_link_libraries(vcellmessaging PUBLIC Threads::Threads)
 
 target_include_directories(vcellmessaging INTERFACE 
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -24,7 +25,7 @@ if (${OPTION_TARGET_MESSAGING})
 	message(STATUS "CURL_LIBRARIES = '${CURL_LIBRARIES}'")
 	message(STATUS "CURL_INCLUDE_DIR = '${CURL_INCLUDE_DIR}'")
 	
-	target_link_libraries(vcellmessaging ${CURL_LIBRARIES} Threads::Threads)
+	target_link_libraries(vcellmessaging PUBLIC ${CURL_LIBRARIES} Threads::Threads)
 	target_compile_definitions(vcellmessaging PUBLIC USE_MESSAGING=1)
 	target_include_directories(vcellmessaging PUBLIC ${CURL_INCLUDE_DIR})
 endif()
