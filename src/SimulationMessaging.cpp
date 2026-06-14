@@ -9,8 +9,8 @@ using std::endl;
 
 #include <cstdio>
 #ifdef USE_MESSAGING
-#include <curl/curl.h>
 #if ( !defined(WIN32) && !defined(WIN64) ) // UNIX
+#include <curl/curl.h>
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
