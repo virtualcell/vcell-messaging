@@ -21,11 +21,10 @@ target_include_directories(vcellmessaging INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:include>  # <prefix>/include
 )
+
 if (${OPTION_TARGET_MESSAGING})
-	message(STATUS "CURL_LIBRARIES = '${CURL_LIBRARIES}'")
-	message(STATUS "CURL_INCLUDE_DIR = '${CURL_INCLUDE_DIR}'")
-	
-	target_link_libraries(vcellmessaging PUBLIC ${CURL_LIBRARIES} Threads::Threads)
+	find_package(CURL REQUIRED)
+	target_link_libraries(vcellmessaging PUBLIC CURL::libcurl Threads::Threads)
 	target_compile_definitions(vcellmessaging PUBLIC USE_MESSAGING=1)
 	target_include_directories(vcellmessaging PUBLIC ${CURL_INCLUDE_DIR})
 endif()
