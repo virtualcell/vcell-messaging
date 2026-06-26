@@ -1,34 +1,39 @@
 project(vcellmessaging CXX)
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/GitDescribe.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/GitDescribe.cpp" @ONLY)
-list(APPEND SOURCES  GitDescribe.h)
-
-set(HEADER_FILES 
-	include/VCELL/SimulationMessaging.h
-		include/VCELL/GitDescribe.h
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/GitDescribe.cpp.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/GitDescribe.cpp"
+  @ONLY
 )
 
-set(SRC_FILES 
-	src/SimulationMessaging.cpp
-		"${CMAKE_CURRENT_BINARY_DIR}/GitDescribe.cpp")
+set(HEADER_FILES
+  include/VCELL/SimulationMessaging.h
+  include/VCELL/GitDescribe.h
+)
 
-include_directories(include)
+set(SRC_FILES
+  src/SimulationMessaging.cpp
+  "${CMAKE_CURRENT_BINARY_DIR}/GitDescribe.cpp"
+)
 
 add_library(vcellmessaging ${SRC_FILES} ${HEADER_FILES})
+
+find_package(Threads REQUIRED)
 target_link_libraries(vcellmessaging PUBLIC Threads::Threads)
 
-target_include_directories(vcellmessaging INTERFACE 
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-	$<INSTALL_INTERFACE:include>  # <prefix>/include
+target_include_directories(vcellmessaging
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
-if (${OPTION_TARGET_MESSAGING})
-	find_package(CURL REQUIRED)
-	target_link_libraries(vcellmessaging PUBLIC CURL::libcurl Threads::Threads)
-	target_compile_definitions(vcellmessaging PUBLIC USE_MESSAGING=1)
-	target_include_directories(vcellmessaging PUBLIC ${CURL_INCLUDE_DIR})
+if(OPTION_TARGET_MESSAGING)
+  find_package(CURL REQUIRED)
+  target_link_libraries(vcellmessaging PUBLIC CURL::libcurl)
+  target_compile_definitions(vcellmessaging PUBLIC USE_MESSAGING=1)
 endif()
 
 install(TARGETS vcellmessaging
-	ARCHIVE DESTINATION bin
-	RUNTIME DESTINATION bin)
+  ARCHIVE DESTINATION bin
+  RUNTIME DESTINATION bin
+)
