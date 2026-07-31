@@ -20,16 +20,19 @@
  *
  *	LOCK ORDERING
  *	We are using two mutexes that could conflict with each other
- *	1) Mutex for whether the worker is active
- *	2) Mutex for access to the event queue
+ *	1) Mutex for the event queue (`queuetex`)
+ *	2) Mutex for whether stop has been requested (`stopRequestedMutex`)
  *
- *	There is a potential deadlock if the worker gets ownership of his isActive mutex,
- *	while another thread owns the event queue mutex. This is because before the worker decides to "clock out",
- *	they would check if they have work in the queue. Since the queue is owned, deadlock.
- *	*****ALWAYS LOCK THE IS_WORKER_ACTIVE MUTEX BEFORE THE QUEUE MUTEX*******
+ *	Both the worker (when it decides to "clock out") and `enqueue` have to consult the queue and the
+ *	stop flag together, so the two mutexes do get held at the same time. That is only safe while every
+ *	thread takes them in the same order.
+ *	*****ALWAYS LOCK THE QUEUE MUTEX BEFORE THE STOP-REQUESTED MUTEX*******
  *
- *	The inverse is possible if the code is changed so that: the worker owns the queue the entire time its doing work,
- *	until it's empty. At the time of this warning, this is not the case.
+ *	SHUTDOWN
+ *	`requestStopAndWaitForIt` joins the worker rather than waiting for the queue to drain. An empty
+ *	queue is not the same as "all work finished": the worker pops an event under `queuetex` but sends
+ *	it after releasing the lock, so a drain-based wait can hand control back to a caller that is about
+ *	to destroy the very state the worker is still using.
  */
 class MessageEventManager {
 	public:
@@ -53,7 +56,6 @@ class MessageEventManager {
 		// Critical Resources / Regions
 		// -> CR #1 - Whether stop has been requested or not
 		bool stopRequested;
-		std::condition_variable requestedStopForeman;
 		std::mutex stopRequestedMutex;
 		// -> CR #2 - The Event Queue
 		std::queue<WorkerEvent*> eventQueue;

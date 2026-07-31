@@ -16,8 +16,7 @@ MessageEventManager::MessageEventManager(std::function<void(WorkerEvent*)> sendU
 }
 
 MessageEventManager::~MessageEventManager() {
-	if (!this->stopRequested) this->requestStopAndWaitForIt();
-	this->eventQueueProcessingWorkerThread.join();
+	this->requestStopAndWaitForIt(); // joins the worker; a no-op if stop was already requested
 }
 
 void MessageEventManager::enqueue(const JobEvent::Status status, const double progress, const double timepoint, const char *eventMessage) {
@@ -33,14 +32,22 @@ void MessageEventManager::enqueue(const JobEvent::Status status, const char *eve
 }
 
 void MessageEventManager::requestStopAndWaitForIt() {
-	std::unique_lock stopRequestedLock{this->stopRequestedMutex};
-	if (this->stopRequested) return;
-	this->stopRequested = true;
+	{
+		// Queue mutex first, then the stop flag -- the same order `enqueue` and `processQueue` use.
+		// Taking them the other way round deadlocks against a worker that is holding `queuetex`
+		// while it checks whether it has been asked to stop.
+		std::lock_guard queueLock{this->queuetex};
+		std::lock_guard stopRequestedLock{this->stopRequestedMutex};
+		this->stopRequested = true;
+	}
 	this->eventQueueForeman.notify_all(); // We want any sleeping workers to wake up, so they check if a stop was requested.
-	this->requestedStopForeman.wait(stopRequestedLock, [this]()->bool {
-		std::unique_lock queueLock{this->queuetex};
-		return this->eventQueue.empty();
-	});
+
+	// The worker only leaves `processQueue` once the queue is drained *and* stop was requested, so
+	// joining is what makes this a real barrier: on return no event is in flight and nothing else
+	// will touch `sendUpdateFunction`. `joinable()` keeps a second call harmless.
+	if (this->eventQueueProcessingWorkerThread.joinable()) {
+		this->eventQueueProcessingWorkerThread.join();
+	}
 }
 
 bool MessageEventManager::stopWasCalled() {
@@ -73,8 +80,7 @@ void MessageEventManager::processQueue() {
 				{ // START stop-requested Scope
 					std::unique_lock stopRequestedLock{this->stopRequestedMutex};
 					if (this->stopRequested) {
-						this->requestedStopForeman.notify_all(); // Tell all stop-requesters that we've registered a stop.
-						return; // We're all done
+						return; // We're all done; the stop-requester is waiting on our join()
 					}
 				} // END stop-requested Scope
 				// If the code gets to here, the worker can stop working, and "get some sleep"

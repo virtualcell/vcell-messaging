@@ -22,6 +22,10 @@ SimulationMessaging::SimulationMessaging():
 }
 
 SimulationMessaging::~SimulationMessaging() noexcept{
+	// The worker thread reaches curlHandler through sendStatus(), and `eventHandler` -- being a
+	// member -- is not torn down until after this body runs. Stop it first, or a destroy that did
+	// not go through cleanupInstanceVar() frees the handler out from under an in-flight event.
+	this->eventHandler.requestStopAndWaitForIt();
 	delete this->curlHandler;
 }
 
